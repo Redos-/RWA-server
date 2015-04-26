@@ -1,0 +1,78 @@
+﻿@{
+    Layout = "~/_SiteLayout.cshtml";
+    Page.Title = "Remote Web Assistant";
+    var modelContainerId = "modelContainer";
+}
+@if (WebSecurity.IsAuthenticated) {
+<div class="container-fluid" id="@modelContainerId">
+    <div class="row top-buffer">
+        <div class="col-xs-9 col-sm-9 col-md-9 col-lg-9">
+            <pre class="console-output" data-bind="html: consoleData, scrollDown: consoleData"></pre>
+        </div>
+        <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3">
+            <table class="table no-top-margin table-hover">
+                <thead>
+                    <tr>
+                        <th class="no-top-padding">Available computers</th>
+                    </tr>
+                </thead>
+                <tbody data-bind="foreach: availableComputers">
+                    <tr>
+                        <td class="selectable-row" data-bind="text: name, click: $parent.selectComputer"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-9 col-sm-9 col-md-9 col-lg-9">
+            <div class="col-xs-10 col-sm-10 col-md-10 col-lg-10 no-left-padding no-right-padding">
+                <input type="text" class="full-width" data-bind="value:sendMessageText, enable: !!selectedComputer(), valueUpdate: 'afterkeydown', enterkey: sendMessageToComputer" />
+            </div>
+            <div class="col-xs-2 col-sm-2 col-md-2 col-lg-2 no-right-padding">
+                <button type="button" class="btn btn-primary full-width" data-bind="click: sendMessageToComputer, enable: !!selectedComputer()">Send</button>
+            </div>
+        </div>
+        <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3">
+            <div class="col-xs-6 col-sm-6 col-md-6 col-lg-6">
+                <button type="button" class="btn btn-success" data-bind="click: connect, visible: !connected()">Connect</button>
+                <button type="button" class="btn btn-danger" data-bind="click: disconnect, visible: connected">Disconnect</button>
+            </div>
+            <div class="col-xs-6 col-sm-6 col-md-6 col-lg-6">
+                <input type="text" class="full-width"  data-bind="value: computerName" />
+            </div>
+        </div>
+    </div>
+</div>
+    
+@section Scripts{
+    <script src="~/Scripts/jquery.signalR-2.2.0.min.js"></script>
+    <script src="@Href("~/signalr/hubs")"></script>
+    <script src="~/Scripts/ui.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            $.RWA.register({
+                ids: {
+                    modelContainer : '#@modelContainerId'
+                },
+                urls: {
+                    
+                }
+            });
+        });
+    </script>
+}    
+    
+} else {
+    <div>New here? Please login or register.</div>
+}
+@*
+TODO: Testing stuff - remove later
+<div id="appmessage"></div>
+
+<div class="container">
+    <input type="text" id="message" />
+    <input type="button" id="sendmessage" value="Send" />
+    <input type="hidden" id="displayname" />
+    <ul id="discussion"></ul>
+</div>*@
