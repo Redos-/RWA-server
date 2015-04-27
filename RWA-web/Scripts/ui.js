@@ -48,12 +48,34 @@
             }
         };
 
+        self.updateConnectedComputers = function (data) {
+            if (!!data) {
+                var array = [];
+                for (var key in data) {
+                    if (data.hasOwnProperty(key)) {
+                        array.push({ name: data[key] === self.computerName() ? data[key] + "(This computer)" : data[key], id: key });
+                    }
+                }
+                self.availableComputers(array);
+            }
+        };
+
         //self.sendMessageToExtension = function (msg) {
         //    dispatchEvent('SendMessageToExtension', msg);
         //};
 
         self.recieveMessageFromExtension = function (msg) {
-            $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
+            if (!!msg.callerId)
+                $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
+            else 
+            {
+                self.addServiceMessageToConsole(msg.text);
+                if (msg.command === "connect") {
+                    app.consoleModel.connected(true);
+                    app.consoleModel.computerName(msg.result);
+                    app.cmdHub.server.connect(msg.result);
+                }
+            }
         };
 
         self.addServiceMessageToConsole = function (msg, type) {
@@ -129,15 +151,7 @@
                 //    + '</strong>:&nbsp;&nbsp;' + encodedMsg + '</li>');
 
             };
-            cmd.client.updateConnectedComputers = function (data) {
-                var array = [];
-                for (var key in data) {
-                    if (data.hasOwnProperty(key)) {
-                        array.push({name: data[key], id: key });
-                    }
-                }
-                app.consoleModel.availableComputers(array);
-            }
+            cmd.client.updateConnectedComputers = app.consoleModel.updateConnectedComputers;
             cmd.client.receiveMessage = app.consoleModel.recieveMessageFromComputer;
 
             // Start the connection.
@@ -151,7 +165,7 @@
                 //});
                 //cmd.server.getConnectedComputers();
                 /* Disconnect client if page was refreshed */
-                cmd.server.disconnect();
+                
             });
             app.cmdHub = cmd;
 
@@ -167,17 +181,16 @@
                     //    app.consoleModel.connected(false);
                     //});
                     app.extensionPort = port;
-                    app.consoleModel.connected(true);
-                    cmd.server.connect(app.consoleModel.computerName());
+                    app.extensionPort.postMessage({ command: "connect" })
                 }
             });
             document.addEventListener("SendMessageToExtension", function (event) {
                 if (!!event.data) {
-                    app.extensionPort.postMessage({ text: event.data.text, callerId: event.callerId })
+                    app.extensionPort.postMessage({ command: "console-message", text: event.data.text, callerId: event.callerId })
                 }
             });
             document.addEventListener("DisconnectFromExtension", function () {
-                app.extensionPort.postMessage({ text: "disconnect" })
+                app.extensionPort.postMessage({ command: "disconnect" })
                 cmd.server.disconnect(app.consoleModel.computerName());
             });
         }

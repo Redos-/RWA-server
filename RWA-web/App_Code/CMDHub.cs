@@ -38,13 +38,20 @@ public class cmdHub : Hub
 
     public override Task OnConnected()
     {
+        Clients.Caller.updateConnectedComputers(hubConnections.ConnectedComputers);
         return base.OnConnected();
+    }
+
+    public override Task OnReconnected()
+    {
+        Clients.Caller.updateConnectedComputers(hubConnections.ConnectedComputers);
+        return base.OnReconnected();
     }
 
     public override Task OnDisconnected(bool stopCalled)
     {
         hubConnections.ConnectedComputers.Remove(Context.ConnectionId);
-        Clients.All.updateConnectedComputers(hubConnections.ConnectedComputers);
+        Clients.Others.updateConnectedComputers(hubConnections.ConnectedComputers);
         return base.OnDisconnected(stopCalled);
     }
 
