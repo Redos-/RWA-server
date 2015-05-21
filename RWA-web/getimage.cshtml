@@ -1,0 +1,9 @@
+﻿@{
+    var callerID = Request.QueryString["callerId"];
+}
+@if (callerID != null && ImageCollection.Items.ContainsKey(callerID))
+{
+    var imageData = ImageCollection.Items[callerID];
+    ImageCollection.Items.Remove(callerID);
+    @imageData
+}

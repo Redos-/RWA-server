@@ -1,0 +1,7 @@
+﻿@{
+    var imageData = Request.Form["data"];
+    var callerID = Request.Form["callerId"];
+    if (callerID != null) {
+        ImageCollection.Items.Add(callerID, imageData);
+    }
+}

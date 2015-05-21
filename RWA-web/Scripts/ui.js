@@ -8,11 +8,56 @@
         self.connected = ko.observable(false);
         self.computerName = ko.observable("");
         self.selectedComputer = ko.observable();
+        self.prevElement = ko.observable();
+        self.desktopViewEnabled = ko.observable(false);
 
         self.availableComputers = ko.observableArray();
 
-        self.selectComputer = function () {
+        self.startDesktopView = function () {
+            $('#' + options.ids.desktopViewModalId).on('hidden.bs.modal', function () {
+                self.desktopViewEnabled(false);
+            })
+            self.desktopViewEnabled(true);
+            // 30 for a start, may be adjust later
+            setTimeout(self.requestDesktopView, 1);
+        };
+
+        self.requestDesktopView = function() {
+            self.sendMessageToComputer({command: "get-screen", text: ""});
+        };
+
+        self.receiveDesktopView = function (data) {
+            if (data.result === "success") {
+                var imageData = "";
+                $.ajax({
+                    type: "GET",
+                    url: options.urls.getImageUrl,
+                    async: false,
+                    data: {
+                        callerId: data.callerId
+                    },
+                    success: function (data) {
+                        imageData = data;
+                    }
+                });
+                var canvas = document.getElementById(options.ids.desktopViewCanvasId),
+                ctx = canvas.getContext('2d'),
+                pic = new Image();
+                pic.src = 'data:image/jpeg;base64,' + imageData;
+                ctx.drawImage(pic, 0, 0, 1366, 768);
+                if (self.desktopViewEnabled())
+                    setTimeout(self.requestDesktopView, 1);
+            }
+        };
+
+        self.selectComputer = function (data, event) {
             self.selectedComputer(this);
+            var element = event.delegateTarget;
+            $(element).addClass('selectedRow');
+            if (!!self.prevElement()){
+                $(self.prevElement()).removeClass('selectedRow'); 
+            }
+            self.prevElement(element);
         };
 
         self.connect = function () {
@@ -23,27 +68,70 @@
             dispatchEvent('DisconnectFromExtension');
         };
 
-        self.sendMessageToComputer = function () {
-            self.addDataToConsole('>' + self.sendMessageText());
-            $.RWA.cmdHub.server.sendMessageToClient(self.selectedComputer().id, { text: self.sendMessageText() }, true);
-            self.sendMessageText("");
+        self.sendMessageToComputer = function (message) {
+            if (!!message) {
+                $.RWA.cmdHub.server.sendMessageToClient(self.selectedComputer().id, { command: message.command, text: message.text }, true);
+            }
+            else {
+                // If not defined - take message from field on page
+                self.addDataToConsole('>' + self.sendMessageText());
+                $.RWA.cmdHub.server.sendMessageToClient(self.selectedComputer().id, { command: "console-message", text: self.sendMessageText() }, true);
+                self.sendMessageText("");
+            }
         };
 
-        self.recieveMessageFromComputer = function (callerId, msg, toExtesion) {
-            //self.sendMessageToExtension(msg);
+        self.receiveMessageFromComputer = function (callerId, msg, toExtesion) {
+            // If toExtension equals true - it means that local computer should serve command.
+            // Otherwise we are processing results of operation.
             if (toExtesion) {
                 dispatchEvent('SendMessageToExtension', callerId, msg);
             } else {
-                if (!!msg.result)
-                    self.addDataToConsole(msg.result.replace(/(?:[<>])+/g, ""));
                 if (!!msg.text) {
                     switch (msg.text) {
                         case "$NATIVE_APP_DISCONNECTED": {
                             self.connected(false);
                             self.addServiceMessageToConsole("Native app disconnected", "error");
                         } break;
+                        case "console-message-completed": {
+                            if (!!msg.result)
+                                self.addDataToConsole(msg.result.replace(/(?:[<>])+/g, ""));
+                        } break;
+                        case "get-screen-completed": {
+                            if (!!msg.result)
+                                self.receiveDesktopView(msg);
+                        } break;
                         default: self.addServiceMessageToConsole(msg.text); break;
                     }
+                }
+            }
+        };
+
+        self.receiveMessageFromExtension = function (msg) {
+            // If callerId is specified - then direct message to hub
+            // Otherwise message is addressed to local computer - show in console.
+            if (!!msg.callerId) {
+                // If its screen data, store it on server and notify client for download
+                if (msg.text === "get-screen-completed") {
+                    var uri = "";
+                    $.ajax({ 
+                        type: "POST", 
+                        url: options.urls.saveImageUrl,
+                        async: false, 
+                        data: {
+                            callerId: msg.callerId,
+                            data : msg.result
+                        }
+                    });
+                    msg.result = "success";
+                }
+                $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
+            }
+            else {
+                self.addServiceMessageToConsole(msg.text);
+                if (msg.command === "connect") {
+                    app.consoleModel.connected(true);
+                    app.consoleModel.computerName(msg.result);
+                    app.cmdHub.server.connect(msg.result);
                 }
             }
         };
@@ -57,24 +145,6 @@
                     }
                 }
                 self.availableComputers(array);
-            }
-        };
-
-        //self.sendMessageToExtension = function (msg) {
-        //    dispatchEvent('SendMessageToExtension', msg);
-        //};
-
-        self.recieveMessageFromExtension = function (msg) {
-            if (!!msg.callerId)
-                $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
-            else 
-            {
-                self.addServiceMessageToConsole(msg.text);
-                if (msg.command === "connect") {
-                    app.consoleModel.connected(true);
-                    app.consoleModel.computerName(msg.result);
-                    app.cmdHub.server.connect(msg.result);
-                }
             }
         };
 
@@ -114,7 +184,7 @@
     var app = {
         register: function (options) {
             app.options = options;
-            var modelContainer = document.getElementById(options.ids.modelContainer);
+            var modelContainer = document.getElementById('#' + options.ids.modelContainer);
             app.consoleModel = new consoleModel(options);
             /*Send message when enter key is pressed*/
             ko.bindingHandlers.enterkey = {
@@ -152,7 +222,7 @@
 
             };
             cmd.client.updateConnectedComputers = app.consoleModel.updateConnectedComputers;
-            cmd.client.receiveMessage = app.consoleModel.recieveMessageFromComputer;
+            cmd.client.receiveMessage = app.consoleModel.receiveMessageFromComputer;
 
             // Start the connection.
             $.connection.hub.start().done(function () {
@@ -176,7 +246,7 @@
                 //chrome.runtime.sendMessage("idgohcnlmadelahillndfoeeblikheef", { text: "hello event" });
                 var port = chrome.runtime.connect("fagmagkhnbjillhgognkkhpeehnamiom", { name: "web-site" });
                 if (!!port) {
-                    port.onMessage.addListener(app.consoleModel.recieveMessageFromExtension);
+                    port.onMessage.addListener(app.consoleModel.receiveMessageFromExtension);
                     //port.onDisconnect.addListener(function () {
                     //    app.consoleModel.connected(false);
                     //});
@@ -186,7 +256,7 @@
             });
             document.addEventListener("SendMessageToExtension", function (event) {
                 if (!!event.data) {
-                    app.extensionPort.postMessage({ command: "console-message", text: event.data.text, callerId: event.callerId })
+                    app.extensionPort.postMessage({ command: event.data.command, text: event.data.text, callerId: event.callerId })
                 }
             });
             document.addEventListener("DisconnectFromExtension", function () {

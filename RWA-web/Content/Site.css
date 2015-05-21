@@ -607,18 +607,33 @@ tr.pager td {
     margin-top: 15px;
 }
 
-table.no-top-margin{
+table.no-top-margin {
     margin-top: 0px;
 }
 
-.table>thead>tr>th.no-top-padding{
+.table>thead>tr>th.no-top-padding {
     padding-top: 0px;
 }
 
-.table>tbody>tr>td{
+.table>tbody>tr>td {
     cursor: pointer;
 }
 
+.selectedRow {
+    background-color: rgb(211, 220, 224);
+}
+
+.modal-widescreen{
+    width: 100% !important;
+}
+
+.desktop-view-canvas{
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
 
 /********************
 *   Mobile Styles   *
