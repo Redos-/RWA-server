@@ -11,9 +11,9 @@ public class cmdHub : Hub
     /// <summary>
     /// Connect computer to receive commands
     /// </summary>
-    public void Connect(string name)
+    public void Connect(string name, string peerId)
     {
-        hubConnections.ConnectedComputers.Add(Context.ConnectionId, name);
+        hubConnections.ConnectedComputers.Add(Context.ConnectionId, new Peer(name, peerId));
         Clients.All.updateConnectedComputers(hubConnections.ConnectedComputers);
     }
     public void Disconnect()
