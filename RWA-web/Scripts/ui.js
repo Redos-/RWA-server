@@ -23,6 +23,7 @@
         self.startDesktopView = function () {
             $('#' + options.ids.desktopViewModalId).on('hidden.bs.modal', function () {
                 self.desktopViewEnabled(false);
+                self.sendMessageToComputer({ command: "close-screen", text: "" });
                 self.hostConn().close();
             })
             self.desktopViewEnabled(true);
@@ -34,7 +35,6 @@
             //self.sendMessageToComputer({ command: "get-screen", text: "" });
             var conn = self.peer().connect(self.selectedComputer().peerId);
             conn.on('open', function () {
-                console.log("connection open");
                 // Receive messages
                 conn.on('data', function (data) {
                     var imageData = data.result;
@@ -43,6 +43,9 @@
                     pic = new Image();
                     pic.src = 'data:image/jpeg;base64,' + imageData;
                     ctx.drawImage(pic, 0, 0, 1366, 768);
+                    pic = null;
+                    imageData = null;
+                    data = null;
                 });
                 // Send messages
                 conn.send({ command: "get-screen", text: "" });
@@ -136,29 +139,33 @@
             // If callerId is specified - then direct message to hub
             // Otherwise message is addressed to local computer - show in console.
             if (!!msg.callerId) {
-                if (msg.text === "get-screen-completed") {
-                    //// Old variant
-                    //// If its screen data, store it on server and notify client for download
-                    //var uri = "";
-                    //$.ajax({ 
-                    //    type: "POST", 
-                    //    url: options.urls.saveImageUrl,
-                    //    async: false, 
-                    //    data: {
-                    //        callerId: msg.callerId,
-                    //        data : msg.result
-                    //    }
-                    //});
-                    self.peerConn().send(msg);
-                    if (self.streamingDesktop()) {
-                        self.dispatchEvent('SendMessageToExtension', "local", { command: "get-screen", text: "" });
-                    }
-                } else {
-                    $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
-                }
+                //// Old variant
+                //// If its screen data, store it on server and notify client for download
+                //var uri = "";
+                //$.ajax({ 
+                //    type: "POST", 
+                //    url: options.urls.saveImageUrl,
+                //    async: false, 
+                //    data: {
+                //        callerId: msg.callerId,
+                //        data : msg.result
+                //    }
+                //});
+                $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
             }
             else {
-                self.addServiceMessageToConsole(msg.text);
+                switch (msg.text) {
+                    case "$NATIVE_APP_DISCONNECTED": {
+                        self.connected(false);
+                        self.addServiceMessageToConsole("Native app disconnected", "error");
+                    } break;
+                    case "get-screen-completed": {
+                        self.peerConn().send(msg);
+                    } break;
+                    default: {
+                        self.addServiceMessageToConsole(msg.text);
+                    };
+                }
                 if (msg.command === "connect") {
                     app.viewModel.connected(true);
                     app.viewModel.computerName(msg.result);
@@ -310,10 +317,11 @@
                     if (!!msg) {
                         if (msg.command === "get-screen") {
                             app.viewModel.streamingDesktop(true);
-                            app.viewModel.dispatchEvent('SendMessageToExtension', "local", msg);
+                            app.viewModel.dispatchEvent('SendMessageToExtension', "", msg);
                         }
                         if (msg.command === "close-screen") {
                             app.viewModel.streamingDesktop(false);
+                            app.viewModel.dispatchEvent('SendMessageToExtension', "", msg);
                         }
                     }
                 });

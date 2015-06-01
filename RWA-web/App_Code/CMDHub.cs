@@ -13,8 +13,11 @@ public class cmdHub : Hub
     /// </summary>
     public void Connect(string name, string peerId)
     {
-        hubConnections.ConnectedComputers.Add(Context.ConnectionId, new Peer(name, peerId));
-        Clients.All.updateConnectedComputers(hubConnections.ConnectedComputers);
+        if (!hubConnections.ConnectedComputers.ContainsKey(Context.ConnectionId))
+        {
+            hubConnections.ConnectedComputers.Add(Context.ConnectionId, new Peer(name, peerId));
+            Clients.All.updateConnectedComputers(hubConnections.ConnectedComputers);
+        }
     }
     public void Disconnect()
     {
