@@ -10,11 +10,12 @@
         self.selectedComputer = ko.observable();
         self.prevElement = ko.observable();
         self.desktopViewEnabled = ko.observable(false);
+        self.desktopImage = ko.observable(new Image());
 
         // peer.js
         self.peer = ko.observable();
         self.peerId = ko.observable();
-        self.hostConn = ko.observable();
+        //self.hostConn = ko.observable();
         self.peerConn = ko.observable();
         self.streamingDesktop = ko.observable(false);
 
@@ -24,10 +25,46 @@
             $('#' + options.ids.desktopViewModalId).on('hidden.bs.modal', function () {
                 self.desktopViewEnabled(false);
                 self.sendMessageToComputer({ command: "close-screen", text: "" });
-                self.hostConn().close();
+                //self.hostConn().close();
             })
             self.desktopViewEnabled(true);
             self.requestDesktopView();
+        };
+
+        self.b64toByteArray = function (b64Data, sliceSize) {
+            sliceSize = sliceSize || 512;
+
+            var byteCharacters = atob(b64Data);
+            var byteArrays = [];
+
+            for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+                var byteNumbers = new Array(slice.length);
+                for (var i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+
+                var byteArray = new Uint8Array(byteNumbers);
+
+                byteArrays.push(byteArray);
+            }
+            return byteArrays;
+        };
+
+        var BASE64_MARKER = ';base64,';
+
+        self.convertDataURIToBinary = function (dataURI) {
+            var base64Index = dataURI.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
+            var base64 = dataURI.substring(base64Index);
+            var raw = atob(base64);
+            var rawLength = raw.length;
+            var array = new Uint8Array(new ArrayBuffer(rawLength));
+
+            for (i = 0; i < rawLength; i++) {
+                array[i] = raw.charCodeAt(i);
+            }
+            return array;
         };
 
         self.requestDesktopView = function() {
@@ -39,18 +76,70 @@
                 conn.on('data', function (data) {
                     var imageData = data.result;
                     var canvas = document.getElementById(options.ids.desktopViewCanvasId),
-                    ctx = canvas.getContext('2d'),
-                    pic = new Image();
-                    pic.src = 'data:image/jpeg;base64,' + imageData;
-                    ctx.drawImage(pic, 0, 0, 1366, 768);
-                    pic = null;
-                    imageData = null;
+                    ctx = canvas.getContext('2d');
+                    // Working simple way
+                    //ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    //self.desktopImage().src = 'data:image/jpeg;base64,' + imageData;
+                    //ctx.drawImage(self.desktopImage(), 0, 0, 1366, 768);
+
+                    // Working blob
+                    self.desktopImage().onload = (function (image) {
+                        return function (e) {
+                            ctx.drawImage(image, 0, 0, 1366, 768);
+                            URL.revokeObjectURL(this.src);
+                        }
+                    })(self.desktopImage())
+                    var blob = new Blob(self.b64toByteArray(imageData, 512), { type: "image/jpeg" });
+                    self.desktopImage().src = URL.createObjectURL(blob);
+
+                    // Jpg.js - TOO SLOW
+                    //var parser = new JpegDecoder();
+                    //parser.parse(self.convertDataURIToBinary('data:image/jpeg;base64,' + data.result));
+                    //var width = parser.width;
+                    //var height = parser.height;
+                    //var numComponents = parser.numComponents;
+                    //var decoded = parser.getData(width, height);
+                    //var imageData = ctx.createImageData(width, height);
+                    //var imageBytes = imageData.data;
+                    //for (var i = 0, j = 0, ii = width * height * 4; i < ii;) {
+                    //    imageBytes[i++] = decoded[j++];
+                    //    imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
+                    //    imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
+                    //    imageBytes[i++] = 255;
+                    //}
+                    //ctx.putImageData(imageData, 0, 0);
+
+                    // Doesnt work
+                    //var data = atob(data.result);
+                    //var arr = new Uint8Array(data.length);
+                    //for (var i = data.length - 1; i >= 0; i--) {
+                    //    arr[i] = data.charCodeAt(i);
+                    //}
+                    //var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                    //jImage.copyToImageData(imageData);
+                    //ctx.putImageData(imageData, 0, 0);
+
+                    //convert to binary in StringView
+                    //var view = StringView.base64ToBytes(data.result);
+                    //var blob = new Blob([view], { type: "jpeg" }); 
+                    //var outURL = URL.createObjectURL(blob);
+                    //self.desktopImage().src = outURL;
+                    //ctx.drawImage(self.desktopImage(), 0, 0, 1366, 768);
+                    //URL.revokeObjectURL(outURL);
+                    //blob = null;
+                    //view = null;
+                    data.result = null;
                     data = null;
+                    imageData = null;
+                    blob = null;
+                    Object.keys(conn._chunkedData).forEach(function (item, i, arr) {
+                        delete conn._chunkedData[item];
+                    });
                 });
                 // Send messages
                 conn.send({ command: "get-screen", text: "" });
             });
-            self.hostConn(conn);
+            //self.hostConn(conn);
         };
 
         self.receiveDesktopView = function (data) {
