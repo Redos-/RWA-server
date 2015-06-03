@@ -47,10 +47,6 @@
             <div class="col-xs-6 col-sm-6 col-md-6 col-lg-6">
                 <button type="button" data-toggle="modal" data-target="#@desktopViewModalId" class="btn btn-success" data-bind="click: startDesktopView, enable: !!selectedComputer()">Open Desktop View</button>
             </div>
-            @* No need atm
-            <div class="col-xs-6 col-sm-6 col-md-6 col-lg-6">
-                <input type="text" class="full-width"  data-bind="value: computerName" />
-            </div>*@
         </div>
     </div>
 </div>
@@ -61,6 +57,19 @@
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title">Desktop view</h4>
+                <div class="control-group">
+                    <div class="controls form-inline">
+                        <label for="miQuality">Quality</label>
+                        <input type="number" class="input-small input-integer" id="miQuality">
+                        <label for="miFPS">FPS</label>
+                        <input type="number" class="input-small input-integer" id="miFPS">
+                        <label for="miWidth">Width</label>
+                        <input type="number" class="input-small input-integer" id="miWidth">
+                        <label for="miHeight">Height</label>
+                        <input type="number" class="input-small input-integer" id="miHeight">
+                        <button type="button" class="btn btn-primary btn-update-settings">Update Settings</button>
+                    </div>
+                </div>
             </div>
             <div class="modal-body">
                 <canvas id="@desktopViewCanvasId" height='768' width='1366' class="desktop-view-canvas"></canvas>
@@ -96,13 +105,3 @@
 } else {
     <div>New here? Please login or register.</div>
 }
-@*
-TODO: Testing stuff - remove later
-<div id="appmessage"></div>
-
-<div class="container">
-    <input type="text" id="message" />
-    <input type="button" id="sendmessage" value="Send" />
-    <input type="hidden" id="displayname" />
-    <ul id="discussion"></ul>
-</div>*@

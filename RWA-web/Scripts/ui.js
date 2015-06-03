@@ -3,30 +3,31 @@
     var viewModel = function (options) {
         var self = this;
 
-        self.consoleData = ko.observable("");
-        self.sendMessageText = ko.observable();
+        // General
         self.connected = ko.observable(false);
         self.computerName = ko.observable("");
         self.selectedComputer = ko.observable();
         self.prevElement = ko.observable();
+        self.availableComputers = ko.observableArray();
+        // Console
+        self.consoleData = ko.observable("");
+        self.sendMessageText = ko.observable();
+        // Desktop View
         self.desktopViewEnabled = ko.observable(false);
         self.desktopImage = ko.observable(new Image());
-
-        // peer.js
+        self.quality = ko.observable(50);
+        self.FPS = ko.observable(5);
+        self.desktopWidth = ko.observable(1280);
+        self.desktopHeight = ko.observable(800);
+        // Peer.js
         self.peer = ko.observable();
         self.peerId = ko.observable();
-        //self.hostConn = ko.observable();
+        self.hostConn = ko.observable();
         self.peerConn = ko.observable();
         self.streamingDesktop = ko.observable(false);
 
-        self.availableComputers = ko.observableArray();
 
         self.startDesktopView = function () {
-            $('#' + options.ids.desktopViewModalId).on('hidden.bs.modal', function () {
-                self.desktopViewEnabled(false);
-                self.sendMessageToComputer({ command: "close-screen", text: "" });
-                //self.hostConn().close();
-            })
             self.desktopViewEnabled(true);
             self.requestDesktopView();
         };
@@ -52,24 +53,7 @@
             return byteArrays;
         };
 
-        var BASE64_MARKER = ';base64,';
-
-        self.convertDataURIToBinary = function (dataURI) {
-            var base64Index = dataURI.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
-            var base64 = dataURI.substring(base64Index);
-            var raw = atob(base64);
-            var rawLength = raw.length;
-            var array = new Uint8Array(new ArrayBuffer(rawLength));
-
-            for (i = 0; i < rawLength; i++) {
-                array[i] = raw.charCodeAt(i);
-            }
-            return array;
-        };
-
         self.requestDesktopView = function() {
-            // Old variant with server
-            //self.sendMessageToComputer({ command: "get-screen", text: "" });
             var conn = self.peer().connect(self.selectedComputer().peerId);
             conn.on('open', function () {
                 // Receive messages
@@ -81,8 +65,7 @@
                     //ctx.clearRect(0, 0, canvas.width, canvas.height);
                     //self.desktopImage().src = 'data:image/jpeg;base64,' + imageData;
                     //ctx.drawImage(self.desktopImage(), 0, 0, 1366, 768);
-
-                    // Working blob
+                    // Working blob, excludes memory leak from canvas images
                     self.desktopImage().onload = (function (image) {
                         return function (e) {
                             ctx.drawImage(image, 0, 0, 1366, 768);
@@ -92,79 +75,18 @@
                     var blob = new Blob(self.b64toByteArray(imageData, 512), { type: "image/jpeg" });
                     self.desktopImage().src = URL.createObjectURL(blob);
 
-                    // Jpg.js - TOO SLOW
-                    //var parser = new JpegDecoder();
-                    //parser.parse(self.convertDataURIToBinary('data:image/jpeg;base64,' + data.result));
-                    //var width = parser.width;
-                    //var height = parser.height;
-                    //var numComponents = parser.numComponents;
-                    //var decoded = parser.getData(width, height);
-                    //var imageData = ctx.createImageData(width, height);
-                    //var imageBytes = imageData.data;
-                    //for (var i = 0, j = 0, ii = width * height * 4; i < ii;) {
-                    //    imageBytes[i++] = decoded[j++];
-                    //    imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
-                    //    imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
-                    //    imageBytes[i++] = 255;
-                    //}
-                    //ctx.putImageData(imageData, 0, 0);
-
-                    // Doesnt work
-                    //var data = atob(data.result);
-                    //var arr = new Uint8Array(data.length);
-                    //for (var i = data.length - 1; i >= 0; i--) {
-                    //    arr[i] = data.charCodeAt(i);
-                    //}
-                    //var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-                    //jImage.copyToImageData(imageData);
-                    //ctx.putImageData(imageData, 0, 0);
-
-                    //convert to binary in StringView
-                    //var view = StringView.base64ToBytes(data.result);
-                    //var blob = new Blob([view], { type: "jpeg" }); 
-                    //var outURL = URL.createObjectURL(blob);
-                    //self.desktopImage().src = outURL;
-                    //ctx.drawImage(self.desktopImage(), 0, 0, 1366, 768);
-                    //URL.revokeObjectURL(outURL);
-                    //blob = null;
-                    //view = null;
                     data.result = null;
                     data = null;
                     imageData = null;
                     blob = null;
+                    // Fix for memory leak in peer.js
                     Object.keys(conn._chunkedData).forEach(function (item, i, arr) {
                         delete conn._chunkedData[item];
                     });
                 });
-                // Send messages
-                conn.send({ command: "get-screen", text: "" });
+                conn.send({ command: "get-screen", args: { quality: self.quality(), FPS: self.FPS(), width: self.desktopWidth(), height: self.desktopHeight() } });
             });
-            //self.hostConn(conn);
-        };
-
-        self.receiveDesktopView = function (data) {
-            if (data.result === "success") {
-                // Old variant with server
-                //var imageData = "";
-                //$.ajax({
-                //    type: "GET",
-                //    url: options.urls.getImageUrl,
-                //    async: false,
-                //    data: {
-                //        callerId: data.callerId
-                //    },
-                //    success: function (data) {
-                //        imageData = data;
-                //    }
-                //});
-                //var canvas = document.getElementById(options.ids.desktopViewCanvasId),
-                //ctx = canvas.getContext('2d'),
-                //pic = new Image();
-                //pic.src = 'data:image/jpeg;base64,' + imageData;
-                //ctx.drawImage(pic, 0, 0, 1366, 768);
-                //if (self.desktopViewEnabled())
-                //    setTimeout(self.requestDesktopView, 1);
-            }
+            self.hostConn(conn);
         };
 
         self.selectComputer = function (data, event) {
@@ -206,17 +128,9 @@
             } else {
                 if (!!msg.text) {
                     switch (msg.text) {
-                        case "$NATIVE_APP_DISCONNECTED": {
-                            self.connected(false);
-                            self.addServiceMessageToConsole("Native app disconnected", "error");
-                        } break;
                         case "console-message-completed": {
                             if (!!msg.result)
                                 self.addDataToConsole(msg.result.replace(/(?:[<>])+/g, ""));
-                        } break;
-                        case "get-screen-completed": {
-                            if (!!msg.result)
-                                self.receiveDesktopView(msg);
                         } break;
                         default: self.addServiceMessageToConsole(msg.text); break;
                     }
@@ -228,18 +142,6 @@
             // If callerId is specified - then direct message to hub
             // Otherwise message is addressed to local computer - show in console.
             if (!!msg.callerId) {
-                //// Old variant
-                //// If its screen data, store it on server and notify client for download
-                //var uri = "";
-                //$.ajax({ 
-                //    type: "POST", 
-                //    url: options.urls.saveImageUrl,
-                //    async: false, 
-                //    data: {
-                //        callerId: msg.callerId,
-                //        data : msg.result
-                //    }
-                //});
                 $.RWA.cmdHub.server.sendMessageToClient(msg.callerId, msg, false);
             }
             else {
@@ -250,6 +152,9 @@
                     } break;
                     case "get-screen-completed": {
                         self.peerConn().send(msg);
+                    } break;
+                    case "close-screen-completed": {
+                        self.peerConn().close();
                     } break;
                     default: {
                         self.addServiceMessageToConsole(msg.text);
@@ -315,6 +220,7 @@
     var app = {
         register: function (options) {
             app.options = options;
+            
             var modelContainer = document.getElementById('#' + options.ids.modelContainer);
             app.viewModel = new viewModel(options);
             /*Send message when enter key is pressed*/
@@ -337,66 +243,81 @@
                 }
             };
             ko.applyBindings(app.viewModel, modelContainer);
+            
+            /* Modal */
+            $('#' + options.ids.desktopViewModalId).on('hidden.bs.modal', function () {
+                app.viewModel.desktopViewEnabled(false);
+                app.viewModel.sendMessageToComputer({ command: "close-screen", text: "" });
+            })
+            $('.btn-update-settings').on('click', function () {
+                app.viewModel.quality(document.getElementById('miQuality').value);
+                app.viewModel.FPS(document.getElementById('miFPS').value);
+                app.viewModel.desktopWidth(document.getElementById('miWidth').value);
+                app.viewModel.desktopHeight(document.getElementById('miHeight').value);
+                app.viewModel.hostConn().send({
+                    command: "get-screen",
+                    args: { quality: app.viewModel.quality(), FPS: app.viewModel.FPS(), width: app.viewModel.desktopWidth(), height: app.viewModel.desktopHeight() }
+                });
+            })
+            document.getElementById('miQuality').value = app.viewModel.quality();
+            document.getElementById('miFPS').value = app.viewModel.FPS();
+            document.getElementById('miWidth').value = app.viewModel.desktopWidth();
+            document.getElementById('miHeight').value = app.viewModel.desktopHeight();
+            $('.input-integer').on('keydown', function (e) {
+                // Allow: backspace, delete, tab, escape, enter and .
+                if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 ||
+                    // Allow: Ctrl+A
+                    (e.keyCode == 65 && e.ctrlKey === true) ||
+                    // Allow: Ctrl+C
+                    (e.keyCode == 67 && e.ctrlKey === true) ||
+                    // Allow: Ctrl+X
+                    (e.keyCode == 88 && e.ctrlKey === true) ||
+                    // Allow: home, end, left, right
+                    (e.keyCode >= 35 && e.keyCode <= 39)) {
+                    // let it happen, don't do anything
+                    return;
+                }
+                // Ensure that it is a number and stop the keypress
+                if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                    e.preventDefault();
+                }
+            });
 
-            /* SignalR part */
+            /* SignalR */
             // Declare a proxy to reference the hub. 
             var cmd = $.connection.cmdHub;
-            // Create a function that the hub can call to broadcast messages.
-            cmd.client.broadcastMessage = function (name, message, data) {
-                // TODO: Testing stuff, remove when unnecessary
-                // Html encode display name and message. 
-                //var encodedName = $('<div />').text(name).html();
-                //var encodedMsg = $('<div />').text(message).html();
-                //// Add the message to the page. 
-                //$('#discussion').append('<li><strong>' + encodedName
-                //    + '</strong>:&nbsp;&nbsp;' + encodedMsg + '</li>');
-
-            };
             cmd.client.updateConnectedComputers = app.viewModel.updateConnectedComputers;
             cmd.client.receiveMessage = app.viewModel.receiveMessageFromComputer;
-
             // Start the connection.
             $.connection.hub.start().done(function () {
-                // TODO: Testing stuff, remove when unnecessary
-                //$('#sendmessage').click(function () {
-                //    // Call the Send method on the hub. 
-                //    cmd.server.send($('#displayname').val(), $('#message').val());
-                //    // Clear text box and reset focus for next comment. 
-                //    $('#message').val('').focus();
-                //});
-                //cmd.server.getConnectedComputers();
-                /* Disconnect client if page was refreshed */
-                
             });
             app.cmdHub = cmd;
 
             /* Register extension port */
             /* This will allow web page to communicate with extension */
             document.addEventListener("ConnectToExtension", function () {
-                // TODO: Testing stuff - remove later
-                //chrome.runtime.sendMessage("idgohcnlmadelahillndfoeeblikheef", { text: "hello event" });
                 var port = chrome.runtime.connect("fagmagkhnbjillhgognkkhpeehnamiom", { name: "web-site" });
                 if (!!port) {
                     port.onMessage.addListener(app.viewModel.receiveMessageFromExtension);
-                    //port.onDisconnect.addListener(function () {
-                    //    app.viewModel.connected(false);
-                    //});
+                    port.onDisconnect.addListener(function () {
+                        app.viewModel.connected(false);
+                    });
                     app.extensionPort = port;
                     app.extensionPort.postMessage({ command: "connect" })
                 }
             });
             document.addEventListener("SendMessageToExtension", function (event) {
                 if (!!event.data) {
-                    app.extensionPort.postMessage({ command: event.data.command, text: event.data.text, callerId: event.callerId })
+                    app.extensionPort.postMessage({ command: event.data.command, text: event.data.text, args: event.data.args, callerId: event.callerId })
                 }
             });
             document.addEventListener("DisconnectFromExtension", function () {
                 app.extensionPort.postMessage({ command: "disconnect" })
-                cmd.server.disconnect(app.viewModel.computerName());
+                cmd.server.disconnect();
             });
 
-            // peer.js
-            var peer = new Peer({ key: 'db1nx6o56mie8kt9' });
+            /* Peer.js */
+            var peer = new Peer({ key: '' });
             peer.on('open', function (id) {
                 app.viewModel.peerId(id);
             });
@@ -417,19 +338,6 @@
                 app.viewModel.peerConn(conn);
             });
             app.viewModel.peer(peer);
-
-            //// Video/audio
-            //// Call a peer, providing our mediaStream
-            //var call = peer.call('dest-peer-id',
-            //  mediaStream);
-            //call.on('stream', function (stream) {
-            //    // `stream` is the MediaStream of the remote peer.
-            //    // Here you'd add it to an HTML video/canvas element.
-            //});
-            //peer.on('call', function (call) {
-            //    // Answer the call, providing our mediaStream
-            //    call.answer(mediaStream);
-            //});
         }
     };
 
