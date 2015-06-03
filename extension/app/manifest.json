@@ -1,0 +1,9 @@
+{
+  "name": "rwa",
+  "description": "Remote Web Assistant",
+  "path": "rwa.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://fagmagkhnbjillhgognkkhpeehnamiom/"
+  ]
+}

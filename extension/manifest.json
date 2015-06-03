@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+
+  "name": "Remote Web Assistant",
+  "description": "Helps you control remote computer via web-site.",
+  "version": "1.0",
+
+  "externally_connectable": {
+	"matches": ["*://localhost/*"]
+  }, 
+  "permissions": [
+    "activeTab",
+	"nativeMessaging"
+  ],
+  "background": {
+	"scripts": ["extension_files/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://localhost/*"],
+      "js": ["extension_files/content.js"]
+    }
+  ]
+}
